@@ -46,6 +46,7 @@ def main_real(setup=None):
     command_line_parser = optparse.OptionParser()
     command_line_parser.add_option("--profiler", action="store_true", help="use cProfile on the Dispersy thread", default=False)
     command_line_parser.add_option("--memory-dump", action="store_true", help="use meliae to dump the memory periodically", default=False)
+    command_line_parser.add_option("--databasefile", action="store", help="use an alternate databasefile", default=u"dispersy.db")
     command_line_parser.add_option("--statedir", action="store", type="string", help="Use an alternate statedir", default=u".")
     command_line_parser.add_option("--ip", action="store", type="string", default="0.0.0.0", help="Dispersy uses this ip")
     command_line_parser.add_option("--port", action="store", type="int", help="Dispersy uses this UDL port", default=12345)
@@ -69,7 +70,7 @@ def main_real(setup=None):
     # setup
     currentThread().setName('Dispersy')
     callback = Callback()
-    dispersy = Dispersy.get_instance(callback, unicode(opt.statedir))
+    dispersy = Dispersy.get_instance(callback, unicode(opt.statedir), unicode(opt.databasefile))
     dispersy.statistics.enable_debug_statistics(opt.debugstatistics)
     
     # if opt.swiftproc:
