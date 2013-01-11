@@ -200,14 +200,14 @@ class TrackerCommunity(Community):
         while True:
             result = self._walked_stumbled_candidates.next() 
             if prev_result == result:
-                print >> sys.stderr, "yielding random", None
+                print >> sys.stderr,  long(time()), "yielding random", None
                 yield None
                 
             else:
                 prev_result = result
                 if result == candidate:
                     continue
-                print >> sys.stderr, "yielding random", result
+                print >> sys.stderr, long(time()), "yielding random", result
                 yield result
 
 class TrackerDispersy(Dispersy):
