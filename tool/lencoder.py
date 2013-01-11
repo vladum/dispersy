@@ -101,7 +101,7 @@ def log(filename, _message, **kargs):
     s = "".join(l)
 
     # save to file
-    open(filename, "a+").write(s)
+    #open(filename, "a+").write(s)
 
 def bz2log(filename, _message, **kargs):
     assert isinstance(_message, str)
