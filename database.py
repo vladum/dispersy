@@ -248,7 +248,7 @@ class Database(Singleton):
             if __debug__: dprint(statement, " <-- ", bindings)
 
             if __DEBUG_QUERIES__:
-                f = open('database_queries.txt', 'a')
+                f = open(DB_DEBUG_FILE, 'a')
                 #Store the query plan with EXPLAIN QUERY PLAN to detect possible optimizations
                 f.write('QueryDebug: %s %s\n' % (statement, str(bindings)))
                 for row in self._cursor.execute('EXPLAIN QUERY PLAN '+statement, bindings).fetchall():
