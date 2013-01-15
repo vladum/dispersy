@@ -19,6 +19,13 @@ if __debug__:
     import thread
 
 __DEBUG_QUERIES__ = environ.has_key('DISPERSY_DEBUG_DATABASE_QUERIES')
+if __DEBUG_QUERIES__:
+    from random import randint
+    from os.path import exists
+    DB_DEBUG_FILE="database_queries_%d.txt" % randint(1,9999999)
+    while exists(DB_DEBUG_FILE):
+        DB_DEBUG_FILE="database_queries_%d.txt" % randint(1,9999999)
+
 
 # update version information directly from SVN
 update_revision_information("$HeadURL$", "$Revision$")
