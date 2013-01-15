@@ -6,6 +6,8 @@ This module provides basic database functionalty and simple version control.
 @contact: dispersy@frayja.com
 """
 
+from os import environ
+
 import hashlib
 import sqlite3
 
@@ -15,6 +17,8 @@ from .singleton import Singleton
 
 if __debug__:
     import thread
+
+__DEBUG_QUERIES__ = environ.has_key('DISPERSY_DEBUG_DATABASE_QUERIES')
 
 # update version information directly from SVN
 update_revision_information("$HeadURL$", "$Revision$")
@@ -235,6 +239,15 @@ class Database(Singleton):
 
         try:
             if __debug__: dprint(statement, " <-- ", bindings)
+
+            if __DEBUG_QUERIES__:
+                f = open('database_queries.txt', 'a')
+                #Store the query plan with EXPLAIN QUERY PLAN to detect possible optimizations
+                f.write('QueryDebug: %s %s\n' % (statement, str(bindings)))
+                for row in self._cursor.execute('EXPLAIN QUERY PLAN '+statement, bindings).fetchall():
+                    f.write('%s %s %s\t%s\n' % row)
+                f.write('QueryDebug END\n')
+                f.close()
             return self._cursor.execute(statement, bindings)
 
         except sqlite3.Error:
