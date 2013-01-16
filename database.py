@@ -111,9 +111,10 @@ class Database(Singleton):
         # PRAGMA temp_store = 0 | DEFAULT | 1 | FILE | 2 | MEMORY;
         # http://www.sqlite.org/pragma.html#pragma_temp_store
         #
-        if __debug__: dprint("PRAGMA temp_store = MEMORY (previously: ", temp_store, ")")    
-        if not temp_store in (u"MEMORY", u"2"):
-            self._cursor.execute(u"PRAGMA temp_store = MEMORY")
+#DISABLED temp_store memory        
+#        if __debug__: dprint("PRAGMA temp_store = MEMORY (previously: ", temp_store, ")")    
+#        if not temp_store in (u"MEMORY", u"2"):
+#            self._cursor.execute(u"PRAGMA temp_store = MEMORY")
 
         # check is the database contains an 'option' table
         try:
