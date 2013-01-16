@@ -22,6 +22,7 @@ __DEBUG_QUERIES__ = environ.has_key('DISPERSY_DEBUG_DATABASE_QUERIES')
 if __DEBUG_QUERIES__:
     from random import randint
     from os.path import exists
+    from time import time
     DB_DEBUG_FILE="database_queries_%d.txt" % randint(1,9999999)
     while exists(DB_DEBUG_FILE):
         DB_DEBUG_FILE="database_queries_%d.txt" % randint(1,9999999)
@@ -250,7 +251,7 @@ class Database(Singleton):
             if __DEBUG_QUERIES__:
                 f = open(DB_DEBUG_FILE, 'a')
                 #Store the query plan with EXPLAIN QUERY PLAN to detect possible optimizations
-                f.write('QueryDebug: %s %s\n' % (statement, str(bindings)))
+                f.write('QueryDebug: (%f) %s %s\n' % (time(), statement, str(bindings)))
                 for row in self._cursor.execute('EXPLAIN QUERY PLAN '+statement, bindings).fetchall():
                     f.write('%s %s %s\t%s\n' % row)
                 f.write('QueryDebug END\n')
