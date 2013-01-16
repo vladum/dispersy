@@ -2444,19 +2444,19 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
         #
 
         # obtain all available messages for this community
-        syncable_messages = u", ".join(unicode(meta.database_id) for meta in community.get_meta_messages() if isinstance(meta.distribution, SyncDistribution) and meta.distribution.priority > 32)
+        meta_messages = [(meta.distribution.priority, meta) for meta in community.get_meta_messages() if isinstance(meta.distribution, SyncDistribution) and meta.distribution.priority > 32]
+        meta_messages.sort(reverse = True)
+        
+        sub_selects = []
+        for _, meta in meta_messages:
+            sub_selects.append(u"""SELECT * FROM (SELECT sync.packet FROM sync
+WHERE sync.meta_message == %d AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0
+ORDER BY sync.global_time %s)"""%(meta.database_id, meta.distribution.synchronization_direction))
+        
+        sql = u"SELECT * FROM ("
+        sql += " UNION ALL ".join(sub_selects)
+        sql += ")"
 
-        sql = u"""SELECT sync.packet
-FROM sync
-JOIN meta_message ON meta_message.id = sync.meta_message
-WHERE sync.meta_message IN (%s) AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0
-ORDER BY meta_message.priority DESC, sync.global_time * meta_message.direction""" % syncable_messages
-
-        sql = u"""SELECT sync.packet
-FROM sync
-JOIN meta_message ON meta_message.id = sync.meta_message
-WHERE sync.meta_message IN (%s) AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0
-ORDER BY meta_message.priority DESC""" % syncable_messages
         if __debug__: dprint(sql)
 
         for message in messages:
@@ -2472,10 +2472,13 @@ ORDER BY meta_message.priority DESC""" % syncable_messages
                 # overflow exceptions in the sqlite3 wrapper
                 time_low = min(payload.time_low, 2**63-1)
                 time_high = min(time_high, 2**63-1)
-
+                
+                offset = long(payload.offset)
+                modulo = long(payload.modulo)
+                
                 packets = []
-
-                generator = ((str(packet),) for packet, in self._database.execute(sql, (time_low, long(time_high), long(payload.offset), long(payload.modulo))))
+                generator = ((str(packet),) for packet, in self._database.execute(sql, (time_low, long(time_high), offset, modulo) * len(sub_selects)))
+                    
                 for packet, in payload.bloom_filter.not_filter(generator):
                     if __debug__:dprint("found missing (", len(packet), " bytes) ", sha1(packet).digest().encode("HEX"), " for ", message.candidate)
 
