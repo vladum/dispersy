@@ -2450,7 +2450,7 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
         sub_selects = []
         for _, meta in meta_messages:
             sub_selects.append(u"""SELECT * FROM (SELECT sync.packet FROM sync
-WHERE sync.meta_message == %d AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0
+WHERE sync.meta_message = %d AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0
 ORDER BY sync.global_time %s)"""%(meta.database_id, meta.distribution.synchronization_direction))
         
         sql = u"SELECT * FROM ("
