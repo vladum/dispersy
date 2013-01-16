@@ -2451,6 +2451,11 @@ FROM sync
 JOIN meta_message ON meta_message.id = sync.meta_message
 WHERE sync.meta_message IN (%s) AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0
 ORDER BY meta_message.priority DESC, sync.global_time * meta_message.direction""" % syncable_messages
+
+        sql = u"""SELECT sync.packet
+FROM sync
+JOIN meta_message ON meta_message.id = sync.meta_message
+WHERE sync.meta_message IN (%s) AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0""" % syncable_messages
         if __debug__: dprint(sql)
 
         for message in messages:
