@@ -2110,7 +2110,7 @@ ORDER BY sync.global_time, sync.packet""", (meta.database_id, member1, member2))
 SELECT id, global_time
 FROM sync
 WHERE meta_message = ? AND member = ?
-ORDER BY global_time, packet""", (meta.database_id, member_database_id)))
+ORDER BY global_time""", (meta.database_id, member_database_id)))
                     if len(all_items) > meta.distribution.history_size:
                         items.update(all_items[:len(all_items) - meta.distribution.history_size])
 
