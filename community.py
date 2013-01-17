@@ -869,7 +869,7 @@ class Community(object):
                 del data[-1]
         
         #fetch actual packets from database
-        data = list(self._dispersy.database.execute(u"SELECT global_time, packet FROM sync WHERE meta_message IN (%s) AND undone = 0 AND global_time BEWTEEN ? AND ?" % (syncable_messages), (data[0][0], data[-1][0])))
+        data = list(self._dispersy.database.execute(u"SELECT global_time, packet FROM sync WHERE meta_message IN (%s) AND undone = 0 AND global_time BETWEEN ? AND ?" % (syncable_messages), (data[0][0], data[-1][0])))
         data.sort(cmp = lambda a, b: cmp(a[0], b[0]), reverse = not higher)
 
         return data, fixed
