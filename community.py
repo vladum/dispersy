@@ -849,7 +849,6 @@ class Community(object):
             dprint(self.cid.encode("HEX"), " NOT syncing no syncable messages")
         return (1, self.acceptable_global_time, 1, 0, BloomFilter(8, 0.1, prefix='\x00'))
 
-
     def _select_and_fix(self, syncable_messages, global_time, to_select, higher = True):
         assert isinstance(syncable_messages, unicode)
         if higher:
