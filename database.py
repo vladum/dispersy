@@ -252,7 +252,7 @@ class Database(Singleton):
             if __DEBUG_QUERIES__:
                 f = open(DB_DEBUG_FILE, 'a')
                 #Store the query plan with EXPLAIN QUERY PLAN to detect possible optimizations
-                debug_bindings = bindings[:]
+                debug_bindings = list(bindings)
                 for i, binding in enumerate(debug_bindings):
                     if isinstance(binding, buffer):
                         try:
