@@ -256,7 +256,7 @@ class Database(Singleton):
                 for i, binding in enumerate(debug_bindings):
                     if isinstance(binding, buffer):
                         try:
-                            binding = str(binding).encode("HEX") #try to show content of buffer
+                            binding = str(binding).encode("HEX")[:100] #try to show content of buffer, but a most 100 characters
                         except:
                             pass
                         debug_bindings[i] = binding
