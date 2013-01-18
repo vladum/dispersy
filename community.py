@@ -832,11 +832,12 @@ class Community(object):
             modulo = int(ceil(self._nrsyncpackets / float(capacity)))
             if modulo > 1:
                 offset = randint(0, modulo-1)
+                packets = list(str(packet) for packet, in self._dispersy.database.execute(u"SELECT sync.packet FROM sync WHERE meta_message IN (%s) AND sync.undone = 0 AND (sync.global_time + ?) %% ? = 0" % syncable_messages, (offset, modulo)))
             else:
                 offset = 0
                 modulo = 1
-
-            packets = list(str(packet) for packet, in self._dispersy.database.execute(u"SELECT sync.packet FROM sync WHERE meta_message IN (%s) AND sync.undone = 0 AND sync.global_time > 0 AND (sync.global_time + ?) %% ? = 0" % syncable_messages, (offset, modulo)))
+                packets = list(str(packet) for packet, in self._dispersy.database.execute(u"SELECT sync.packet FROM sync WHERE meta_message IN (%s) AND sync.undone = 0" % syncable_messages))
+            
             bloom.add_keys(packets)
 
             if __debug__:
