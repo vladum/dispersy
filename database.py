@@ -252,12 +252,26 @@ class Database(Singleton):
             if __DEBUG_QUERIES__:
                 f = open(DB_DEBUG_FILE, 'a')
                 #Store the query plan with EXPLAIN QUERY PLAN to detect possible optimizations
-                f.write('QueryDebug: (%f) %s %s\n' % (time(), statement, str(bindings)))
+                debug_bindings = bindings[:]
+                for i, binding in enumerate(debug_bindings):
+                    if isinstance(binding, buffer):
+                        try:
+                            binding = str(binding).encode("HEX") #try to show content of buffer
+                        except:
+                            pass
+                        debug_bindings[i] = binding
+                    
+                f.write('QueryDebug: (%f) %s %s\n' % (time(), statement, str(debug_bindings)))
                 for row in self._cursor.execute('EXPLAIN QUERY PLAN '+statement, bindings).fetchall():
                     f.write('%s %s %s\t%s\n' % row)
-                f.write('QueryDebug END\n')
+                
+            result = self._cursor.execute(statement, bindings)
+            
+            if __DEBUG_QUERIES__:
+                f.write('QueryDebug: (%f) END\n' % time())
                 f.close()
-            return self._cursor.execute(statement, bindings)
+                
+            return result
 
         except sqlite3.Error:
             dprint(exception=True, level="warning")
@@ -271,7 +285,18 @@ class Database(Singleton):
 
         try:
             if __debug__: dprint(statements)
-            return self._cursor.executescript(statements)
+            
+            if __DEBUG_QUERIES__:
+                f = open(DB_DEBUG_FILE, 'a')
+                f.write('QueryDebug-script: (%f) %s %s\n' % (time(), statements))
+
+            result = self._cursor.executescript(statements)
+        
+            if __DEBUG_QUERIES__:
+                f.write('QueryDebug-script: (%f) END\n' % time())
+                f.close()
+                
+            return result
 
         except sqlite3.Error:
             dprint(exception=True, level="warning")
@@ -318,7 +343,22 @@ class Database(Singleton):
 
         try:
             if __debug__: dprint(statement)
-            return self._cursor.executemany(statement, sequenceofbindings)
+            
+                        
+            if __DEBUG_QUERIES__:
+                f = open(DB_DEBUG_FILE, 'a')
+                                    
+                f.write('QueryDebug-executemany: (%f) %s %s %d times\n' % (time(), statement, len(sequenceofbindings)))
+                for row in self._cursor.execute('EXPLAIN QUERY PLAN '+statement, sequenceofbindings[0]).fetchall():
+                    f.write('%s %s %s\t%s\n' % row)
+            
+            result =  self._cursor.executemany(statement, sequenceofbindings)        
+                    
+            if __DEBUG_QUERIES__:
+                f.write('QueryDebug-executemany: (%f) END\n' % time())
+                f.close()
+            
+            return result
 
         except sqlite3.Error:
             dprint(exception=True)
@@ -336,12 +376,22 @@ class Database(Singleton):
 
         else:
             if __debug__: dprint("COMMIT")
+            
+            if __DEBUG_QUERIES__:
+                f = open(DB_DEBUG_FILE, 'a')
+                f.write('QueryDebug-commit: (%f)\n' % time())
+            
             result = self._connection.commit()
             for callback in self._commit_callbacks:
                 try:
                     callback()
                 except Exception:
                     if __debug__: dprint(exception=True, stack=True)
+            
+            if __DEBUG_QUERIES__:     
+                f.write('QueryDebug-commit: (%f) END\n' % time())
+                f.close()
+            
             return result
 
     # def _on_rollback(self):
