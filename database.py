@@ -288,7 +288,7 @@ class Database(Singleton):
             
             if __DEBUG_QUERIES__:
                 f = open(DB_DEBUG_FILE, 'a')
-                f.write('QueryDebug-script: (%f) %s %s\n' % (time(), statements))
+                f.write('QueryDebug-script: (%f) %s\n' % (time(), statements))
 
             result = self._cursor.executescript(statements)
         
