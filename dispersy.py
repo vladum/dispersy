@@ -222,6 +222,12 @@ class GlobalCandidateCache():
         for community in self._dispersy._communities.itervalues():
             if item in community._candidates:
                 return True
+            
+    def __setitem__(self, key, item):
+        now = time()
+        for community in self._dispersy._communities.itervalues():
+            if item.in_community(community, now):
+                community._candidates[key] = item
         
     def __delitem__(self, item):
         for community in self._dispersy._communities.itervalues():
