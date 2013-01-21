@@ -1518,7 +1518,21 @@ WHERE sync.meta_message = ? AND double_signed_sync.member1 = ? AND double_signed
                 candidate = None
 
         return candidate
-
+    
+    def get_walkcandidate(self, message, community):
+        if isinstance(message.candidate, WalkCandidate):
+            return message.candidate
+        
+        else:
+            # modify either the senders LAN or WAN address based on how we perceive that node
+            source_lan_address, source_wan_address = self._estimate_lan_and_wan_addresses(message.candidate.sock_addr, message.payload.source_lan_address, message.payload.source_wan_address)
+            if source_lan_address == ("0.0.0.0", 0) or source_wan_address == ("0.0.0.0", 0):
+                if __debug__: dprint("problems determining source LAN or WAN address, can neither introduce nor convert candidate to WalkCandidate")
+                return None
+            
+            candidate = community.create_candidate(message.candidate.sock_addr, message.candidate.tunnel, source_lan_address, source_wan_address, message.payload.connection_type)
+            return candidate
+            
     def _filter_duplicate_candidate(self, candidate):
         """
         A node told us its LAN and WAN address, it is possible that we can now determine that we
@@ -2375,20 +2389,12 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
         now = time()
 
         for message in messages:
-            payload = message.payload
-
-            # modify either the senders LAN or WAN address based on how we perceive that node
-            source_lan_address, source_wan_address = self._estimate_lan_and_wan_addresses(message.candidate.sock_addr, payload.source_lan_address, payload.source_wan_address)
-
-            if source_lan_address == ("0.0.0.0", 0) or source_wan_address == ("0.0.0.0", 0):
-                if __debug__: dprint("problems determining source LAN or WAN address, can neither introduce nor convert candidate to WalkCandidate")
+            candidate = self.get_walkcandidate(message, community)
+            if not candidate:
                 continue
-
-            if isinstance(message.candidate, WalkCandidate):
-                candidate = message.candidate
-            else:
-                candidate = community.create_candidate(message.candidate.sock_addr, message.candidate.tunnel, source_lan_address, source_wan_address, payload.connection_type)
-                message._candidate = candidate
+            
+            payload = message.payload
+            message._candidate = candidate
 
             # apply vote to determine our WAN address
             self.wan_address_vote(payload.destination_address, candidate)
@@ -2398,9 +2404,10 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
             candidate.associate(community, message.authentication.member)
 
             # update sender candidate
+            source_lan_address, source_wan_address = self._estimate_lan_and_wan_addresses(candidate.sock_addr, payload.source_lan_address, payload.source_wan_address)
             candidate.update(candidate.tunnel, source_lan_address, source_wan_address, payload.connection_type)
             candidate.stumble(community, now)
-            # candidate.active(community, now)
+            
             self._filter_duplicate_candidate(candidate)
             if __debug__: dprint("received introduction request from ", candidate)
             
