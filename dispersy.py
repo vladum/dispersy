@@ -2457,7 +2457,7 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
         #
 
         # obtain all available messages for this community
-        meta_messages = [(meta.distribution.priority, meta.distribution.synchronization_direction_value, meta) for meta in community.get_meta_messages() if isinstance(meta.distribution, SyncDistribution) and meta.distribution.priority > 32]
+        meta_messages = [(meta.distribution.priority, -meta.distribution.synchronization_direction_value, meta) for meta in community.get_meta_messages() if isinstance(meta.distribution, SyncDistribution) and meta.distribution.priority > 32]
         meta_messages.sort(reverse = True)
         
         sub_selects = []
