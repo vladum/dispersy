@@ -2457,11 +2457,11 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
         #
 
         # obtain all available messages for this community
-        meta_messages = [(meta.distribution.priority, meta) for meta in community.get_meta_messages() if isinstance(meta.distribution, SyncDistribution) and meta.distribution.priority > 32]
+        meta_messages = [(meta.distribution.priority, meta.distribution.synchronization_direction_value, meta) for meta in community.get_meta_messages() if isinstance(meta.distribution, SyncDistribution) and meta.distribution.priority > 32]
         meta_messages.sort(reverse = True)
         
         sub_selects = []
-        for _, meta in meta_messages:
+        for _, _, meta in meta_messages:
             sub_selects.append(u"""SELECT * FROM (SELECT sync.packet FROM sync
 WHERE sync.meta_message = %d AND sync.undone = 0 AND sync.global_time BETWEEN ? AND ? AND (sync.global_time + ?) %% ? = 0
 ORDER BY sync.global_time %s)"""%(meta.database_id, meta.distribution.synchronization_direction))
