@@ -189,12 +189,14 @@ class Database(Singleton):
                 if __debug__: dprint("performing ", pending_commits - 1, " pending commits")
                 self.commit()
             return True
+        
         elif isinstance(exc_value, IgnoreCommits):
             if __debug__: dprint("enabling Database.commit() without committing now")
             return True
+        
         else:
-            if __debug__: dprint("ROLLBACK", level="error")
-            self._connection.rollback()
+            #Niels 23-01-2013, an exception happened from within the with database block
+            #returning False to let Python reraise the exception.
             return False
 
     @property
