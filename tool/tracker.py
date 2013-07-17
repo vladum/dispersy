@@ -19,6 +19,8 @@ whenever a introduction request is received for a destroyed overlay.
 """
 
 import logging
+import logging.config
+logging.config.fileConfig("logger.conf")
 logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
