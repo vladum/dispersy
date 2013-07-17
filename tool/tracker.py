@@ -19,6 +19,8 @@ whenever a introduction request is received for a destroyed overlay.
 """
 
 import logging
+import logging.config
+logging.config.fileConfig("logger.conf")
 logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
@@ -331,7 +333,6 @@ class TrackerDispersy(Dispersy):
 
             print "BANDWIDTH", self._endpoint.total_up, self._endpoint.total_down
             print "COMMUNITY", mapping[TrackerCommunity], mapping[TrackerHardKilledCommunity]
-            print "CANDIDATE", len(self._candidates)
 
             if self._statistics.outgoing:
                 for key, value in self._statistics.outgoing.iteritems():
