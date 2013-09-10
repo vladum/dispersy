@@ -326,13 +326,14 @@ class TrackerDispersy(Dispersy):
 
     def _report_statistics(self):
         while True:
-            yield 300.0
+            yield 3.0
             mapping = {TrackerCommunity: 0, TrackerHardKilledCommunity: 0}
             for community in self._communities.itervalues():
                 mapping[type(community)] += 1
 
             print "BANDWIDTH", self._endpoint.total_up, self._endpoint.total_down
             print "COMMUNITY", mapping[TrackerCommunity], mapping[TrackerHardKilledCommunity]
+            print "CANDIDATE2", sum(len(list(community.dispersy_yield_verified_candidates())) for community in self._communities.itervalues())
 
             if self._statistics.outgoing:
                 for key, value in self._statistics.outgoing.iteritems():
