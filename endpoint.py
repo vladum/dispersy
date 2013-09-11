@@ -136,14 +136,14 @@ class RawserverEndpoint(Endpoint):
         if packets:
             self._total_down += sum(len(data) for _, data in packets)
 
-            if logger.isEnabledFor(logging.DEBUG):
-                for sock_addr, data in packets:
-                    try:
-                        name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
-                    except:
-                        name = "???"
-                    logger.debug("%30s <- %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
-                    self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_recv, name)
+            # if logger.isEnabledFor(logging.DEBUG):
+            #     for sock_addr, data in packets:
+            #         try:
+            #             name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
+            #         except:
+            #             name = "???"
+            #         logger.debug("%30s <- %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
+            #         self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_recv, name)
 
             self._dispersy.callback.register(self.dispersythread_data_came_in, (packets, time()))
 
@@ -207,13 +207,13 @@ class RawserverEndpoint(Endpoint):
                     sock_addr, data = self._sendqueue[i]
                     try:
                         self._socket.sendto(data, sock_addr)
-                        if logger.isEnabledFor(logging.DEBUG):
-                            try:
-                                name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
-                            except:
-                                name = "???"
-                            logger.debug("%30s -> %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
-                            self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_send, name)
+                        # if logger.isEnabledFor(logging.DEBUG):
+                        #     try:
+                        #         name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
+                        #     except:
+                        #         name = "???"
+                        #     logger.debug("%30s -> %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
+                        #     self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_send, name)
 
                         index += 1
 
@@ -372,13 +372,13 @@ class TunnelEndpoint(Endpoint):
                 assert self._dispersy.is_valid_address(sock_addr), sock_addr
 
                 for data in packets:
-                    if logger.isEnabledFor(logging.DEBUG):
-                        try:
-                            name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
-                        except:
-                            name = "???"
-                        logger.debug("%30s -> %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
-                        self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_send, name)
+                    # if logger.isEnabledFor(logging.DEBUG):
+                    #     try:
+                    #         name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
+                    #     except:
+                    #         name = "???"
+                    #     logger.debug("%30s -> %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
+                    #     self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_send, name)
 
                     self._swift.send_tunnel(self._session, sock_addr, data)
 
@@ -391,13 +391,13 @@ class TunnelEndpoint(Endpoint):
     def i2ithread_data_came_in(self, session, sock_addr, data):
         assert self._dispersy, "Should not be called before open(...)"
         # assert session == self._session, [session, self._session]
-        if logger.isEnabledFor(logging.DEBUG):
-            try:
-                name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
-            except:
-                name = "???"
-            logger.debug("%30s <- %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
-            self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_recv, name)
+        # if logger.isEnabledFor(logging.DEBUG):
+        #     try:
+        #         name = self._dispersy.convert_packet_to_meta_message(data, load=False, auto_load=False).name
+        #     except:
+        #         name = "???"
+        #     logger.debug("%30s <- %15s:%-5d %4d bytes", name, sock_addr[0], sock_addr[1], len(data))
+        #     self._dispersy.statistics.dict_inc(self._dispersy.statistics.endpoint_recv, name)
 
         self._total_down += len(data)
         self._dispersy.callback.register(self.dispersythread_data_came_in, (sock_addr, data, time()))
