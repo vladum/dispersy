@@ -18,9 +18,11 @@ Note that there is no output for REQ_IN2 for destroyed overlays.  Instead a DEST
 whenever a introduction request is received for a destroyed overlay.
 """
 
+# logging config file only when not used as a library
 import logging
-import logging.config
-logging.config.fileConfig("logger.conf")
+if __name__ == "__main__":
+    import logging.config
+    logging.config.fileConfig("logger.conf")
 logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
