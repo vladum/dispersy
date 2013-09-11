@@ -1,6 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 
+from abc import ABCMeta, abstractmethod
 from itertools import product
 from select import select
 from time import time
@@ -20,6 +21,7 @@ TUNNEL_PREFIX = "ffffffff".decode("HEX")
 
 
 class Endpoint(object):
+    __metaclass__ = ABCMeta
 
     def __init__(self):
         self._dispersy = None
@@ -50,18 +52,22 @@ class Endpoint(object):
         self._total_send = 0
         self._cur_sendqueue = 0
 
+    @abstractmethod
     def get_address(self):
-        raise NotImplementedError()
+        pass
 
+    @abstractmethod
     def send(self, candidates, packets):
-        raise NotImplementedError()
+        pass
 
     def open(self, dispersy):
         self._dispersy = dispersy
+        return True
 
     def close(self, timeout=0.0):
         assert self._dispersy, "Should not be called before open(...)"
         assert isinstance(timeout, float), type(timeout)
+        return True
 
 
 class NullEndpoint(Endpoint):
@@ -115,7 +121,7 @@ class RawserverEndpoint(Endpoint):
 
     def close(self, timeout=0.0):
         self._rawserver.stop_listening_udp(self._socket)
-        super(RawserverEndpoint, self).close(timeout)
+        return super(RawserverEndpoint, self).close(timeout)
 
     def get_address(self):
         assert self._dispersy, "Should not be called before open(...)"
@@ -266,6 +272,8 @@ class StandaloneEndpoint(RawserverEndpoint):
 
     def close(self, timeout=10.0):
         self._running = False
+        result = True
+
         if timeout > 0.0:
             self._thread.join(timeout)
 
@@ -273,9 +281,10 @@ class StandaloneEndpoint(RawserverEndpoint):
             self._socket.close()
         except socket.error as exception:
             logger.exception("%s", exception)
+            result = False
 
         # do NOT call RawserverEndpoint.open!
-        Endpoint.close(self, timeout)
+        return Endpoint.close(self, timeout) and result
 
     def _loop(self):
         assert self._dispersy, "Should not be called before open(...)"
@@ -327,7 +336,7 @@ class TunnelEndpoint(Endpoint):
 
     def close(self, timeout=0.0):
         self._swift.remove_download(self, True, True)
-        super(TunnelEndpoint, self).close(timeout)
+        return super(TunnelEndpoint, self).close(timeout)
 
     def get_def(self):
         class DummyDef(object):

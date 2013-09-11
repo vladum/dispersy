@@ -1,7 +1,7 @@
 import logging
 logger = logging.getLogger(__name__)
 
-from hashlib import sha1
+from abc import ABCMeta, abstractmethod
 from math import ceil
 from socket import inet_ntoa, inet_aton
 from struct import pack, unpack_from, Struct
@@ -30,6 +30,9 @@ class Conversion(object):
     community version.  If also allows outgoing messages to be converted to a different, possibly
     older, community version.
     """
+
+    __metaclass__ = ABCMeta
+
     def __init__(self, community, dispersy_version, community_version):
         """
         COMMUNITY instance that this conversion belongs to.
@@ -78,6 +81,14 @@ class Conversion(object):
     def prefix(self):
         return self._prefix
 
+    @abstractmethod
+    def can_decode_message(self, data):
+        """
+        Returns True when DATA can be decoded using this conversion.
+        """
+        assert isinstance(data, str), type(data)
+
+    @abstractmethod
     def decode_meta_message(self, data):
         """
         Obtain the dispersy meta message from DATA.
@@ -86,8 +97,8 @@ class Conversion(object):
         assert isinstance(data, str)
         assert len(data) >= 22
         assert data[:22] == self._prefix
-        raise NotImplementedError("The subclass must implement decode_message")
 
+    @abstractmethod
     def decode_message(self, address, data, verify=True):
         """
         DATA is a string, where the first byte is the on-the-wire Dispersy version, the second byte
@@ -99,8 +110,15 @@ class Conversion(object):
         assert isinstance(data, str)
         assert len(data) >= 22
         assert data[:22] == self._prefix
-        raise NotImplementedError("The subclass must implement decode_message")
 
+    @abstractmethod
+    def can_encode_message(self, message):
+        """
+        Returns True when MESSAGE can be encoded using this conversion.
+        """
+        assert isinstance(message, (Message, Message.Implementation)), type(message)
+
+    @abstractmethod
     def encode_message(self, message, sign=True):
         """
         Encode a Message instance into a binary string where the first byte is the on-the-wire
@@ -109,8 +127,14 @@ class Conversion(object):
 
         Returns a binary string.
         """
-        assert isinstance(message, Message)
-        raise NotImplementedError("The subclass must implement encode_message")
+        assert isinstance(message, Message), type(message)
+        assert isinstance(sign, bool), type(sign)
+
+    def __str__(self):
+        return "<%s %s%s>" % (self.__class__.__name__, self.dispersy_version.encode("HEX"), self.community_version.encode("HEX"))
+
+    def __repr__(self):
+        return str(self)
 
 
 class BinaryConversion(Conversion):
@@ -1060,6 +1084,13 @@ class BinaryConversion(Conversion):
                 signatures.append("\x00" * member.signature_length)
         return data + "".join(signatures)
 
+    def can_encode_message(self, message):
+        """
+        Returns True when MESSAGE can be encoded using this conversion.
+        """
+        assert isinstance(message, (Message, Message.Implementation)), type(message)
+        return message.name in self._encode_message_map
+
     def encode_message(self, message, sign=True):
         assert isinstance(message, Message.Implementation), message
         assert message.name in self._encode_message_map, message.name
@@ -1377,6 +1408,15 @@ class BinaryConversion(Conversion):
 
         return placeholder.meta.Implementation(placeholder.meta, placeholder.authentication, placeholder.resolution, placeholder.distribution, placeholder.destination, placeholder.payload, conversion=self, candidate=candidate, packet=placeholder.data)
 
+    def can_decode_message(self, data):
+        """
+        Returns True when DATA can be decoded using this conversion.
+        """
+        assert isinstance(data, str), type(data)
+        return (len(data) >= 23 and
+                data[:22] == self._prefix and
+                data[22] in self._decode_message_map)
+
     def decode_meta_message(self, data):
         """
         Decode a binary string into a Message instance.
@@ -1402,6 +1442,9 @@ class BinaryConversion(Conversion):
         assert isinstance(data, str), data
         assert isinstance(verify, bool)
         return self._decode_message(candidate, data, verify, False)
+
+    def __str__(self):
+        return "<%s %s%s [%s]>" % (self.__class__.__name__, self.dispersy_version.encode("HEX"), self.community_version.encode("HEX"), ", ".join(self._encode_message_map.iterkeys()))
 
 
 class DefaultConversion(BinaryConversion):

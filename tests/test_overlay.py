@@ -4,7 +4,6 @@ summary = logging.getLogger("test-overlay-summary")
 
 from os import environ
 from pprint import pformat
-from itertools import chain
 from time import time
 from unittest import skipUnless
 from collections import defaultdict
@@ -17,19 +16,19 @@ from .dispersytestclass import DispersyTestFunc, call_on_dispersy_thread
 
 class TestOverlay(DispersyTestFunc):
 
-    @skipUnless(environ.get("TEST_OVERLAY") == "yes", "This 'unittest' tests the health of a live overlay, as such, this is not part of the code review process")
+    @skipUnless(environ.get("TEST_OVERLAY_ALL_CHANNEL") == "yes", "This 'unittest' tests the health of a live overlay, as such, this is not part of the code review process")
     def test_all_channel_community(self):
         return self.check_live_overlay(cid_hex="8164f55c2f828738fa779570e4605a81fec95c9d",
                                        version="\x01",
                                        enable_fast_walker=False)
 
-    #@skipUnless(environ.get("TEST_OVERLAY") == "yes", "This 'unittest' tests the health of a live overlay, as such, this is not part of the code review process")
-    #def test_barter_community(self):
-    #    return self.check_live_overlay(cid_hex="4fe1172862c649485c25b3d446337a35f389a2a2",
-    #                                   version="\x01",
-    #                                   enable_fast_walker=False)
+    @skipUnless(environ.get("TEST_OVERLAY_BARTER") == "yes", "This 'unittest' tests the health of a live overlay, as such, this is not part of the code review process")
+    def test_barter_community(self):
+        return self.check_live_overlay(cid_hex="4fe1172862c649485c25b3d446337a35f389a2a2",
+                                       version="\x01",
+                                       enable_fast_walker=False)
 
-    @skipUnless(environ.get("TEST_OVERLAY") == "yes", "This 'unittest' tests the health of a live overlay, as such, this is not part of the code review process")
+    @skipUnless(environ.get("TEST_OVERLAY_SEARCH") == "yes", "This 'unittest' tests the health of a live overlay, as such, this is not part of the code review process")
     def test_search_community(self):
         return self.check_live_overlay(cid_hex="2782dc9253cef6cc9272ee8ed675c63743c4eb3a",
                                        version="\x01",
@@ -61,10 +60,7 @@ class TestOverlay(DispersyTestFunc):
                     now = time()
 
                     # count -everyone- that is active (i.e. walk or stumble)
-                    active_canidates = [candidate
-                                        for candidate
-                                        in self._candidates.itervalues()
-                                        if candidate.is_active(self, now)]
+                    active_canidates = list(self.dispersy_yield_verified_candidates())
                     if len(active_canidates) > 20:
                         logger.debug("there are %d active non-bootstrap candidates available, prematurely quitting fast walker", len(active_canidates))
                         break
@@ -72,7 +68,7 @@ class TestOverlay(DispersyTestFunc):
                     # request bootstrap peers that are eligible
                     eligible_candidates = [candidate
                                            for candidate
-                                           in chain(self._dispersy.bootstrap_candidates)
+                                           in self._dispersy.bootstrap_candidates
                                            if candidate.is_eligible_for_walk(now)]
                     for count, candidate in enumerate(eligible_candidates[:len(eligible_candidates) / 2], 1):
                         logger.debug("%d/%d extra walk to %s", count, len(eligible_candidates), candidate)

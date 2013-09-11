@@ -53,6 +53,7 @@ except ImportError:
 from collections import defaultdict
 from hashlib import sha1
 from itertools import groupby, islice, count
+from pprint import pformat
 from socket import inet_aton, error as socket_error
 from time import time
 
@@ -292,10 +293,10 @@ class Dispersy(object):
         # our LAN and WAN addresses
         self._lan_address = (self._guess_lan_address() or "0.0.0.0", 0)
         self._wan_address = ("0.0.0.0", 0)
-        self._wan_address_votes = {}
-        if __debug__:
-            logger.debug("my LAN address is %s:%d", self._lan_address[0], self._lan_address[1])
-            logger.debug("my WAN address is %s:%d", self._wan_address[0], self._wan_address[1])
+        self._wan_address_votes = defaultdict(set)
+        logger.debug("my LAN address is %s:%d", self._lan_address[0], self._lan_address[1])
+        logger.debug("my WAN address is %s:%d", self._wan_address[0], self._wan_address[1])
+        logger.debug("my connection type is %s", self._connection_type)
 
         # bootstrap peers
         bootstrap_candidates = get_bootstrap_candidates(self)
@@ -405,21 +406,21 @@ class Dispersy(object):
         This method is called immediately after endpoint.start finishes.
         """
         host, port = self._endpoint.get_address()
-        logger.warn("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], self._lan_address[0], port)
+        logger.info("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], self._lan_address[0], port)
         self._lan_address = (self._lan_address[0], port)
 
         # at this point we do not yet have a WAN address, set it to the LAN address to ensure we
         # have something
         assert self._wan_address == ("0.0.0.0", 0)
-        logger.warn("update WAN address %s:%d -> %s:%d", self._wan_address[0], self._wan_address[1], self._lan_address[0], self._lan_address[1])
+        logger.info("update WAN address %s:%d -> %s:%d", self._wan_address[0], self._wan_address[1], self._lan_address[0], self._lan_address[1])
         self._wan_address = self._lan_address
 
         if not self.is_valid_address(self._lan_address):
-            logger.warn("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], host, self._lan_address[1])
+            logger.info("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], host, self._lan_address[1])
             self._lan_address = (host, self._lan_address[1])
 
             if not self.is_valid_address(self._lan_address):
-                logger.warn("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], self._wan_address[0], self._lan_address[1])
+                logger.info("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], self._wan_address[0], self._lan_address[1])
                 self._lan_address = (self._wan_address[0], self._lan_address[1])
 
         # our address may not be a bootstrap address
@@ -1015,6 +1016,31 @@ class Dispersy(object):
         assert isinstance(address[0], str)
         assert isinstance(address[1], int)
         assert isinstance(voter, Candidate), type(voter)
+
+        def set_lan_address(address):
+            if self._lan_address == address:
+                return False
+            else:
+                logger.info("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], address[0], address[1])
+                self._lan_address = address
+                return True
+
+        def set_wan_address(address):
+            if self._wan_address == address:
+                return False
+            else:
+                logger.info("update WAN address %s:%d -> %s:%d", self._wan_address[0], self._wan_address[1], address[0], address[1])
+                self._wan_address = address
+                return True
+
+        def set_connection_type(connection_type):
+            if self._connection_type == connection_type:
+                return False
+            else:
+                logger.info("update connection type %s -> %s", self._connection_type, connection_type)
+                self._connection_type = connection_type
+                return True
+
         if self._wan_address[0] in (voter.wan_address[0], voter.sock_addr[0]):
             logger.debug("ignoring vote from candidate on the same LAN")
             return
@@ -1023,55 +1049,60 @@ class Dispersy(object):
             logger.debug("got invalid external vote from %s received %s:%s", voter, address[0], address[1])
             return
 
-        if __debug__:
-            debug_previous_connection_type = self._connection_type
-
         # undo previous vote
         self.wan_address_unvote(voter)
 
         # do vote
-        votes = self._wan_address_votes
-        if not address in votes:
-            votes[address] = set()
-        votes[address].add(voter.sock_addr)
+        logger.debug("add vote for %s from %s", address, voter.sock_addr)
+        self._wan_address_votes[address].add(voter.sock_addr)
+
+        # logger.info("_wan_address %s, address %s", self._wan_address, address)
+        # logger.info("len(self._wan_address_votes[address]) %d, len(self._wan_address_votes[_wan_address]) %d", len(self._wan_address_votes[address]), len(self._wan_address_votes.get(self._wan_address, ())))
+
+        #
+        # check self._lan_address and self._wan_address
+        #
 
         # change when new vote count equal or higher than old address vote count
-        if self._wan_address != address and len(votes[address]) >= len(votes.get(self._wan_address, ())):
-            if len(votes) > 1:
-                logger.debug("not updating WAN address, suspect symmetric NAT",)
-                self._connection_type = u"symmetric-NAT"
+        if len(self._wan_address_votes[address]) >= len(self._wan_address_votes.get(self._wan_address, ())) and\
+                set_wan_address(address):
 
-            else:
-                # it is possible that, for some time after the WAN address changes, we will believe
-                # that the connection type is symmetric NAT.  once votes have been pruned we may
-                # find that we are no longer behind a symmetric-NAT
-                if self._connection_type == u"symmetric-NAT":
-                    self._connection_type = u"unknown"
+            # reassessing our LAN address, perhaps we are running on a roaming device
+            lan_address = (self._guess_lan_address() or "0.0.0.0", self._lan_address[1])
+            if not self.is_valid_address(lan_address):
+                lan_address = (self._wan_address[0], self._lan_address[1])
+            set_lan_address(lan_address)
 
-                logger.warn("update WAN address %s:%d -> %s:%d", self._wan_address[0], self._wan_address[1], address[0], address[1])
-                self._wan_address = address
+            # our address may not be a bootstrap address
+            if self._wan_address in self._bootstrap_candidates:
+                del self._bootstrap_candidates[self._wan_address]
+            if self._lan_address in self._bootstrap_candidates:
+                del self._bootstrap_candidates[self._lan_address]
 
-                if not self.is_valid_address(self._lan_address):
-                    logger.warn("update LAN address %s:%d -> %s:%d", self._lan_address[0], self._lan_address[1], self._wan_address[0], self._lan_address[1])
-                    self._lan_address = (self._wan_address[0], self._lan_address[1])
+            # our address may not be a candidate
+            for community in self._communities.itervalues():
+                community.candidates.pop(self._wan_address, None)
+                community.candidates.pop(self._lan_address, None)
 
-                # our address may not be a bootstrap address
-                if self._wan_address in self._bootstrap_candidates:
-                    del self._bootstrap_candidates[self._wan_address]
+                for candidate in [candidate for candidate in community.candidates.itervalues() if candidate.wan_address == self._wan_address]:
+                    community.candidates.pop(candidate.sock_addr, None)
 
-                # our address may not be a candidate
-                for community in self._communities.itervalues():
-                    community.candidates.pop(self._wan_address, None)
+        #
+        # check self._connection_type
+        #
 
-            for candidate in [candidate for candidate in community.candidates.itervalues() if candidate.wan_address == self._wan_address]:
-                community.candidates.pop(candidate.sock_addr, None)
+        if len(self._wan_address_votes) == 1 and self._lan_address == self._wan_address:
+            # external peers are reporting the same WAN address that happens to be our LAN address as well
+            set_connection_type(u"public")
 
-        if self._connection_type == u"unknown" and self._lan_address == self._wan_address:
-            self._connection_type = u"public"
+        elif len(self._wan_address_votes) > 1:
+            # external peers are reporting multiple WAN addresses (most likely the same IP with different port numbers)
+            set_connection_type(u"symmetric-NAT")
 
-        if __debug__:
-            if not debug_previous_connection_type == self._connection_type:
-                logger.warn("update connection type %s -> %s", debug_previous_connection_type, self._connection_type)
+        else:
+            # it is possible that, for some time after the WAN address changes, we will believe that the connection type
+            # is symmetric NAT.  once votes have been pruned we may find that we are no longer behind a symmetric-NAT
+            set_connection_type(u"unknown")
 
     def _is_duplicate_sync_message(self, message):
         """
@@ -1560,7 +1591,7 @@ WHERE sync.meta_message = ? AND double_signed_sync.member1 = ? AND double_signed
 
         # find associated conversion
         try:
-            conversion = community.get_conversion(packet[:22])
+            conversion = community.get_conversion_for_packet(packet)
         except KeyError:
             logger.warning("unable to convert a %d byte packet (unknown conversion)", len(packet))
             return None
@@ -1597,7 +1628,7 @@ WHERE sync.meta_message = ? AND double_signed_sync.member1 = ? AND double_signed
 
         # find associated conversion
         try:
-            conversion = community.get_conversion(packet[:22])
+            conversion = community.get_conversion_for_packet(packet)
         except KeyError:
             logger.warning("unable to convert a %d byte packet (unknown conversion)", len(packet))
             return None
@@ -1632,7 +1663,7 @@ WHERE sync.meta_message = ? AND double_signed_sync.member1 = ? AND double_signed
 
         # find associated conversion
         try:
-            conversion = community.get_conversion(packet[:22])
+            conversion = community.get_conversion_for_packet(packet)
         except KeyError:
             logger.warning("unable to convert a %d byte packet (unknown conversion)", len(packet))
             return None
@@ -1936,7 +1967,7 @@ WHERE sync.meta_message = ? AND double_signed_sync.member1 = ? AND double_signed
 
             # find associated conversion
             try:
-                conversion = community.get_conversion(packet[:22])
+                conversion = community.get_conversion_for_packet(packet)
             except KeyError:
                 logger.warning("drop a %d byte packet (received packet for unknown conversion) from %s", len(packet), candidate)
                 self._statistics.dict_inc(self._statistics.drop, "_convert_packets_into_batch:unknown conversion")
@@ -2244,9 +2275,9 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
                     test_bloom_filter.clear()
                     test_bloom_filter.add_keys(packets)
                     if not bloom_filter.bytes == bloom_filter.bytes:
-                        if bloom_filter.get_bits_checked() < test_bloom_filter.get_bits_checked():
-                            logger.error("%d bits in: %s", bloom_filter.get_bits_checked(), bloom_filter.bytes.encode("HEX"))
-                            logger.error("%d bits in: %s", test_bloom_filter.get_bits_checked(), test_bloom_filter.bytes.encode("HEX"))
+                        if bloom_filter.bits_checked < test_bloom_filter.bits_checked:
+                            logger.error("%d bits in: %s", bloom_filter.bits_checked, bloom_filter.bytes.encode("HEX"))
+                            logger.error("%d bits in: %s", test_bloom_filter.bits_checked, test_bloom_filter.bytes.encode("HEX"))
                             assert False, "does not match the given range [%d:%d] %%%d+%d packets:%d" % (time_low, time_high, modulo, offset, len(packets))
 
         if destination.get_destination_address(self._wan_address) != destination.sock_addr:
@@ -3101,19 +3132,27 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
         @param messages: The dispersy-identity message.
         @type messages: [Message.Implementation]
         """
-        meta = messages[0].community.get_meta_message(u"dispersy-identity")
-        for message in messages:
-            # we are assuming that no more than 10 members have the same sha1 digest.
-            sql = u"SELECT packet FROM sync JOIN member ON member.id = sync.member WHERE sync.community = ? AND sync.meta_message = ? AND member.mid = ? LIMIT 10"
-            packets = [str(packet) for packet, in self._database.execute(sql, (message.community.database_id, meta.database_id, buffer(message.payload.mid)))]
-            if packets:
-                logger.debug("responding with %d identity messages", len(packets))
-                self._statistics.dict_inc(self._statistics.outgoing, u"-dispersy-identity", len(packets))
-                self._endpoint.send([message.candidate], packets)
+        meta_id = messages[0].community.get_meta_message(u"dispersy-identity").database_id
+        sql_member = u"SELECT id FROM member WHERE mid = ? LIMIT 10"
+        sql_packet = u"SELECT packet FROM sync WHERE community = ? AND member = ? AND meta_message = ? LIMIT 1"
 
-            else:
-                assert not message.payload.mid == message.community.my_member.mid, "we should always have our own dispersy-identity"
-                logger.warning("could not find any missing members.  no response is sent [%s, mid:%s, cid:%s]", message.payload.mid.encode("HEX"), message.community.my_member.mid.encode("HEX"), message.community.cid.encode("HEX"))
+        for message in messages:
+            mid = message.payload.mid
+            community_id = message.community.database_id
+
+            # we are assuming that no more than 10 members have the same sha1 digest.
+            for member_id in [member_id for member_id, in self._database.execute(sql_member, (buffer(mid),))]:
+                packets = [str(packet) for packet, in self._database.execute(sql_packet,
+                                                                             (community_id, member_id, meta_id))]
+
+                if packets:
+                    logger.debug("responding with %d identity messages", len(packets))
+                    self._statistics.dict_inc(self._statistics.outgoing, u"-dispersy-identity", len(packets))
+                    self._endpoint.send([message.candidate], packets)
+
+                else:
+                    assert not message.payload.mid == message.community.my_member.mid, "we should always have our own dispersy-identity"
+                    logger.warning("could not find any missing members.  no response is sent [%s, mid:%s, cid:%s]", mid.encode("HEX"), message.community.my_member.mid.encode("HEX"), message.community.cid.encode("HEX"))
 
     def create_signature_request(self, community, candidate, message, response_func, response_args=(), timeout=10.0, forward=True):
         """
@@ -4374,6 +4413,11 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
         2. closes endpoint
         3. closes database
         4. stops callback
+
+        Returns True when all above steps were successfully completed, otherwise False is returned.
+        Note that attempts will be made to process each step, even if one or more steps fail.  For
+        example, when 'close endpoint' reports a failure the databases and callback will still be
+        closed and stopped.
         """
         assert self._callback.is_running, "Must be called before the callback.stop()"
         assert isinstance(timeout, float), type(timeout)
@@ -4398,12 +4442,16 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
                                     in self._communities.itervalues()
                                     if community.get_classification() == classification])
 
+            return True
+
         def stop():
             # unload all communities
-            ordered_unload_communities()
+            results.append(ordered_unload_communities())
+            assert all(isinstance(result, bool) for result in results), [type(result) for result in results]
 
             # stop endpoint
-            self._endpoint.close(timeout)
+            results.append(self._endpoint.close(timeout))
+            assert all(isinstance(result, bool) for result in results), [type(result) for result in results]
 
             # Murphy tells us that endpoint just added tasks that caused new communities to load
             while True:
@@ -4423,16 +4471,25 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
                 self._batch_cache.clear()
 
                 # unload all communities
-                ordered_unload_communities()
+                results.append(ordered_unload_communities())
+                assert all(isinstance(result, bool) for result in results), [type(result) for result in results]
 
             # stop the database
-            self._database.close()
+            results.append(self._database.close())
+            assert all(isinstance(result, bool) for result in results), [type(result) for result in results]
+
+        # output statistics before we stop
+        if logger.isEnabledFor(logging.DEBUG):
+            self._statistics.update()
+            logger.debug("\n%s", pformat(self._statistics.get_dict(), width=120))
 
         logger.info("stopping the Dispersy core...")
+        results = []
         self._callback.call(stop, priority= -512)
-        self._callback.stop(timeout)
-        logger.info("Dispersy core stopped")
-        return True
+        results.append(self._callback.stop(timeout))
+        assert all(isinstance(result, bool) for result in results), [type(result) for result in results]
+        logger.info("Dispersy core stopped %s", results)
+        return all(results)
 
     def _candidate_walker(self):
         """
@@ -4568,9 +4625,8 @@ WHERE sync.community = ? AND meta_message.priority > 32 AND sync.undone = 0 AND 
                 for category, candidates in categories.iteritems():
                     aged = [(candidate.age(now), candidate) for candidate in candidates]
                     for age, candidate in sorted(aged):
-                        logger.info("%4ds %s%s%s%s %-7s %-13s %s",
+                        logger.info("%4ds %s%s%s %-7s %-13s %s",
                                     min(age, 9999),
-                                    "A" if candidate.is_any_active(now) else " ",
                                     "O" if candidate.is_obsolete(now) else " ",
                                     "E" if candidate.is_eligible_for_walk(now) else " ",
                                     "B" if isinstance(candidate, BootstrapCandidate) else " ",
